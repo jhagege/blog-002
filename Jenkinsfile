@@ -50,7 +50,7 @@ node('master') {
         try {
             withMaven(maven: 'Maven 3') {
                 dir('tests/bobcat') {
-                    sh 'mvn clean test -Dmaven.test.failure.ignore=true'
+                    sh '  clean test -Dmaven.test.failure.ignore=true'
                 }
             }
         } finally {
@@ -69,6 +69,7 @@ node('master') {
                 releasedVersion = getReleasedVersion()
                 withCredentials([usernamePassword(credentialsId: 'github-jhagege', passwordVariable: 'password', usernameVariable: 'username')]) {
                     sh "git config user.email cyberjoac@gmail.com && git config user.name jhagege"
+                    sh "git checkout -f master"
                     sh "mvn release:prepare release:perform -Dusername=${username} -Dpassword=${password}"
                 }
                 dockerCmd "build --tag automatingguy/sparktodo:${releasedVersion} ."
