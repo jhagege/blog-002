@@ -50,7 +50,7 @@ node('master') {
         try {
             withMaven(maven: 'Maven 3') {
                 dir('tests/bobcat') {
-                    sh '  clean test -Dmaven.test.failure.ignore=true'
+                    sh 'mvn clean test -Dmaven.test.failure.ignore=true'
                 }
             }
         } finally {
