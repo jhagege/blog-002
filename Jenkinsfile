@@ -67,8 +67,8 @@ node('master') {
         withMaven(maven: 'Maven 3') {
             dir('app') {
                 releasedVersion = getReleasedVersion()
-                withCredentials([usernamePassword(credentialsId: 'github', passwordVariable: 'password', usernameVariable: 'username')]) {
-                    sh "git config user.email test@automatingguy.com && git config user.name Jenkins"
+                withCredentials([usernamePassword(credentialsId: 'github-jhagege', passwordVariable: 'password', usernameVariable: 'username')]) {
+                    sh "git config user.email cyberjoac@gmail.com && git config user.name jhagege"
                     sh "mvn release:prepare release:perform -Dusername=${username} -Dpassword=${password}"
                 }
                 dockerCmd "build --tag automatingguy/sparktodo:${releasedVersion} ."
