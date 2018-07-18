@@ -1,10 +1,11 @@
 #!groovy
 
+@Library('ag-library@master') _
+
 def releasedVersion
 
 node('master') {
-  def dockerTool = tool name: 'docker', type: 'org.jenkinsci.plugins.docker.commons.tools.DockerTool'
-  withEnv(["DOCKER=${dockerTool}/bin"]) {
+  withDocker {
     stage('Prepare') {
         deleteDir()
         parallel Checkout: {
@@ -35,27 +36,17 @@ node('master') {
     }
 
     stage('Tests') {
-        try {
-            dir('tests/rest-assured') {
-                sh './gradlew clean test'
-            }
-        } finally {
-            junit testResults: 'tests/rest-assured/build/*.xml', allowEmptyResults: true
-            archiveArtifacts 'tests/rest-assured/build/**'
+        dir('tests/rest-assured') {
+            restAssured()
         }
 
         dockerCmd 'rm -f snapshot'
         dockerCmd 'run -d -p 9999:9999 --name "snapshot" --network="host" automatingguy/sparktodo:SNAPSHOT'
 
-        try {
+        dir('tests/bobcat') {
             withMaven(maven: 'Maven 3') {
-                dir('tests/bobcat') {
-                    sh 'mvn clean test -Dmaven.test.failure.ignore=true'
-                }
+                bobcat params: '-Dwebdriver.type=remote -Dwebdriver.url=http://localhost:4444/wd/hub -Dwebdriver.cap.browserName=chrome'
             }
-        } finally {
-            junit testResults: 'tests/bobcat/target/*.xml', allowEmptyResults: true
-            archiveArtifacts 'tests/bobcat/target/**'
         }
 
         dockerCmd 'rm -f snapshot'
@@ -67,26 +58,14 @@ node('master') {
         withMaven(maven: 'Maven 3') {
             dir('app') {
                 releasedVersion = getReleasedVersion()
-                withCredentials([usernamePassword(credentialsId: 'github-jhagege', passwordVariable: 'password', usernameVariable: 'username')]) {
-                    sh "git config user.email cyberjoac@gmail.com && git config user.name jhagege"
-                    sh "git checkout -f master"
-                    sh "mvn release:prepare release:perform -Dusername=${username} -Dpassword=${password}"
-                }
+                release credentials: 'github-jhagege', email: 'cyberjoac@gmail.com'
                 dockerCmd "build --tag automatingguy/sparktodo:${releasedVersion} ."
             }
         }
     }
 
     stage('Deploy @ Prod') {
-        dockerCmd "run -d -p 9999:9999 --name 'production' automatingguy/sparktodo:${releasedVersion}"
+        dockerCmd "run -d -p 12345:12345 --network='host' --name 'production' automatingguy/sparktodo:${releasedVersion}"
     }
   }
-}
-
-def dockerCmd(args) {
-    sh "sudo ${DOCKER}/docker ${args}"
-}
-
-def getReleasedVersion() {
-    return (readFile('pom.xml') =~ '<version>(.+)-SNAPSHOT</version>')[0][1]
 }
